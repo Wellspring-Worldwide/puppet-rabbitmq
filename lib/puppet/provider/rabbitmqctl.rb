@@ -18,9 +18,13 @@ class Puppet::Provider::Rabbitmqctl < Puppet::Provider
         '-q'
       end
     else
-      # rabbit_version is unknown, run rabbitmq_version function
-      # to update the local instance variable rabbit_version
-      rabbitmq_version
+      if Facter.value(:rabbitmq_version)
+        @rabbit_version = Facter.value(:rabbitmq_version)
+      else
+        # rabbit_version is unknown, run rabbitmq_version function
+        # to update the local instance variable rabbit_version
+        rabbitmq_version
+      end
       exec_args
     end
   end
