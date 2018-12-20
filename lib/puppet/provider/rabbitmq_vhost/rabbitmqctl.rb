@@ -28,6 +28,6 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def exists?
-    eval(self.class.run_with_retries { rabbitmqctl('eval', '[binary_to_list(X) || X <- rabbit_vhost:list()].') } )
+    eval(self.class.run_with_retries { rabbitmqctl('eval', "rabbit_vhost:exists(<<\"#{name}\">>).")})
   end
 end
