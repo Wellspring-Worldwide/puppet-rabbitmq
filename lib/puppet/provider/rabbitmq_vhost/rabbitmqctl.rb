@@ -10,10 +10,10 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
 
   def self.instances
     vhost_list = run_with_retries do
-      rabbitmqctl(exec_args, 'list_vhosts')
+      rabbitmqctl('exec', 'rabbit_vhost:list().')
     end
 
-    vhost_list.split(%r{\n}).map do |line|
+    vhost_list.split(',').map do |line|
       raise Puppet::Error, "Cannot parse invalid vhost line: #{line}" unless line =~ %r{^(\S+)$}
       new(name: Regexp.last_match(1))
     end
@@ -28,6 +28,6 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def exists?
-    self.class.run_with_retries { rabbitmqctl('-q', 'list_vhosts') }.split(%r{\n}).include? resource[:name]
+    self.class.run_with_retries { rabbitmqctl('eval', 'rabbit_vhost:list().') }.include? resource[:name]
   end
 end
