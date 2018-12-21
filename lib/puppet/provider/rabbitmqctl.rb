@@ -3,11 +3,9 @@ class Puppet::Provider::Rabbitmqctl < Puppet::Provider
   commands rabbitmqctl: 'rabbitmqctl'
 
   def self.rabbitmq_version
-    output = rabbitmqctl('-q', 'status')
-    version = output.match(%r{\{rabbit,"RabbitMQ","([\d\.]+)"\}})
-    return unless version
-    @rabbit_version = version[1]
-    version[1]
+    @rabbit_version if @rabbit_version
+    @rabbit_version = eval(rabbitmqctl('eval', 'rabbit_misc:version().'))
+    @rabbit_version
   end
 
   def self.exec_args
