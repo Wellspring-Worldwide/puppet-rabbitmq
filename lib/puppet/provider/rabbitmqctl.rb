@@ -7,7 +7,7 @@ class Puppet::Provider::Rabbitmqctl < Puppet::Provider
   end
 
   def self.exec_args
-    if Gem::Version.new(rabbitmq_version) >= Gem::Version.new('3.7.9')
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7.9') >= 0
       ['--no-table-headers', '-q']
     else
       '-q'
