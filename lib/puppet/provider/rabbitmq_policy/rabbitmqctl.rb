@@ -12,26 +12,30 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
       rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_policy:list())]).').gsub('ok', '')
     end
 
-    if not JSON.parse(all_policies).empty?
-      all_policies.each do |policy|
-        marshal_policy = policy
+    if JSON.parse(all_policies).empty?
+      #puts "empty policy list"
+      return
+    end
 
-        vhost = policy['vhost']
-        policy_name = policy['name']
+    JSON.parse(all_policies).each do |policy|
+      marshal_policy = policy
 
-        @policies[vhost] = {} unless @policies[vhost]
-        @policies[vhost][policy_name] = { 
-          'applyto' => policy['apply-to'],
-          'priority' => policy['priority'],
-          'definition' => policy['definition'],
-          'pattern' => policy['pattern'],
-        }
-      end
+      vhost = policy['vhost']
+      policy_name = policy['name']
+
+      @policies[vhost] = {} unless @policies[vhost]
+      policy_hash = {
+        applyto: policy['apply-to'],
+        priority: policy['priority'].to_s,
+        definition: policy['definition'],
+        pattern: policy['pattern']
+      }
+      @policies[vhost][policy_name] = policy_hash
     end
   end
 
   def self.policies(vhost,name)
-    unless @policies[vhost][name]
+    unless @policies[vhost]
       self.populate_policies
     end
     @policies[vhost][name]
@@ -106,7 +110,7 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   end
 
   def pattern
-    policies(should_vhost, should_policy)["pattern"]
+    policies(should_vhost, should_policy)[:pattern]
   end
 
   def pattern=(_pattern)
@@ -114,7 +118,7 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   end
 
   def applyto
-    policies(should_vhost, should_policy)["applyto"]
+    policies(should_vhost, should_policy)[:applyto]
   end
 
   def applyto=(_applyto)
@@ -122,7 +126,7 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   end
 
   def definition
-    policies(should_vhost, should_policy)["definition"]
+    policies(should_vhost, should_policy)[:definition]
   end
 
   def definition=(_definition)
@@ -130,7 +134,7 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   end
 
   def priority
-    policies(should_vhost, should_policy)["priority"]
+    policies(should_vhost, should_policy)[:priority]
   end
 
   def priority=(_priority)
@@ -140,29 +144,29 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   def set_policy
     return if @set_policy
     @set_policy = true
-    resource["applyto"]    ||= applyto
-    resource["definition"] ||= definition
-    resource["pattern"]    ||= pattern
-    resource["priority"]   ||= priority
+    resource[:applyto]    ||= applyto
+    resource[:definition] ||= definition
+    resource[:pattern]    ||= pattern
+    resource[:priority]   ||= priority
     # rabbitmq>=3.2.0
     if Puppet::Util::Package.versioncmp(self.class.rabbitmq_version, '3.2.0') >= 0
       rabbitmqctl(
         'set_policy',
         '-p', should_vhost,
-        '--priority', resource["priority"],
-        '--apply-to', resource["applyto"].to_s,
+        '--priority', resource[:priority],
+        '--apply-to', resource[:applyto].to_s,
         should_policy,
-        resource["pattern"],
-        resource["definition"].to_json
+        resource[:pattern],
+        resource[:definition].to_json
       )
     else
       rabbitmqctl(
         'set_policy',
         '-p', should_vhost,
         should_policy,
-        resource["pattern"],
-        resource["definition"].to_json,
-        resource["priority"]
+        resource[:pattern],
+        resource[:definition].to_json,
+        resource[:priority]
       )
     end
   end
