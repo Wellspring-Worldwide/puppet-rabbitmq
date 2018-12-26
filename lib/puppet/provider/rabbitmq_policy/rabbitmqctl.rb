@@ -14,29 +14,32 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
       end
     else
       all_policies = run_with_retries do
-        rabbitmqctl('eval', 'case rabbit_misc:json_encode(rabbit_policy:list()) of {ok, JSON} -> io:format("~s", [list_to_binary(JSON)]) end.').gsub('ok', '')
+        rabbitmqctl('eval', 'case rabbit_misc:json_encode(rabbit_policy:list()) of {ok, JSON} -> io:format("~s", [JSON]) end.').gsub('ok', '')
       end
     end
 
-    if JSON.parse(all_policies).empty?
+    json_policies = JSON.parse(all_policies)
+
+    if json_policies.empty?
       #puts "empty policy list"
       return
-    end
+    else
+      json_policies.each do |policy|
+        marshal_policy = policy
 
-    JSON.parse(all_policies).each do |policy|
-      marshal_policy = policy
+        vhost = policy['vhost']
+        policy_name = policy['name']
 
-      vhost = policy['vhost']
-      policy_name = policy['name']
+        @policies[vhost] = {} unless @policies[vhost]
 
-      @policies[vhost] = {} unless @policies[vhost]
-      policy_hash = {
-        applyto: policy['apply-to'],
-        priority: policy['priority'].to_s,
-        definition: policy['definition'],
-        pattern: policy['pattern']
-      }
-      @policies[vhost][policy_name] = policy_hash
+        policy_hash = {
+          applyto: policy['apply-to'],
+          priority: policy['priority'].to_s,
+          definition: policy['definition'],
+          pattern: policy['pattern']
+        }
+        @policies[vhost][policy_name] = policy_hash
+      end
     end
   end
 
@@ -44,51 +47,13 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
     unless @policies[vhost]
       self.populate_policies
     end
-    @policies[vhost][name]
-  end
 
-  # cache policies
-  def self.old_policies(vhost, name)
-    @policies = {} unless @policies
-    unless @policies[vhost]
-      @policies[vhost] = {}
-      policy_list = run_with_retries do
-        rabbitmqctl(exec_args, 'list_policies', '-p', vhost)
-      end
-
-      # rabbitmq<3.2 does not support the applyto field
-      # 1 2      3?  4  5                                            6
-      # / ha-all all .* {"ha-mode":"all","ha-sync-mode":"automatic"} 0 << This is for RabbitMQ v < 3.7.0
-      # / ha-all .* all {"ha-mode":"all","ha-sync-mode":"automatic"} 0 << This is for RabbitMQ v >= 3.7.0
-      if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
-        regex = %r{^(\S+)\s+(\S+)\s+(\S+)\s+(all|exchanges|queues)?\s+(\S+)\s+(\d+)$}
-        applyto_index = 4
-        pattern_index = 3
-      else
-        regex = %r{^(\S+)\s+(\S+)\s+(all|exchanges|queues)?\s*(\S+)\s+(\S+)\s+(\d+)$}
-        applyto_index = 3
-        pattern_index = 4
-      end
-
-      policy_list.split(%r{\n}).each do |line|
-        raise Puppet::Error, "cannot parse line from list_policies:#{line}" unless line =~ regex
-        n          = Regexp.last_match(2)
-        applyto    = Regexp.last_match(applyto_index) || 'all'
-        priority   = Regexp.last_match(6)
-        definition = JSON.parse(Regexp.last_match(5))
-        # be aware that the gsub will reset the captures
-        # from the regexp above
-        pattern    = Regexp.last_match(pattern_index).to_s.gsub(%r{\\\\}, '\\')
-
-        @policies[vhost][n] = {
-          applyto: applyto,
-          pattern: pattern,
-          definition: definition,
-          priority: priority
-        }
-      end
+    if @policies[vhost]
+      #puts 'vhost exists'
+      return @policies[vhost][name] if @policies[vhost][name]
+    else
+      return
     end
-    @policies[vhost][name]
   end
 
   def policies(vhost, name)
