@@ -8,7 +8,7 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
   @policies = {}
 
   def self.populate_policies
-    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.6') >= 0
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
       all_policies = run_with_retries do
         rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_policy:list())]).').gsub('ok', '')
       end
