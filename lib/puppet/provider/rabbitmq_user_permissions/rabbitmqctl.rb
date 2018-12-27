@@ -13,7 +13,7 @@ Puppet::Type.type(:rabbitmq_user_permissions).provide(:rabbitmqctl, parent: Pupp
   @users = {}
 
   def self.populate_users
-    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.6') >= 0
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
       all_users = run_with_retries do
         rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_auth_backend_internal:list_permissions())]).')
       end
