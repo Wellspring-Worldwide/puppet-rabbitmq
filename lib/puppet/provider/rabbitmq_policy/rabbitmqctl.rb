@@ -25,8 +25,6 @@ Puppet::Type.type(:rabbitmq_policy).provide(:rabbitmqctl, parent: Puppet::Provid
       return
     else
       json_policies.each do |policy|
-        marshal_policy = policy
-
         vhost = policy['vhost']
         policy_name = policy['name']
 
