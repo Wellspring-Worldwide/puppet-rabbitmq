@@ -31,19 +31,14 @@ Puppet::Type.type(:rabbitmq_user_permissions).provide(:rabbitmqctl, parent: Pupp
       return
     else
       json_users.each do |user|
-        puts user
         vhost = user['vhost']
         user_name = user['user']
 
-        configure = user['configure']
-        read = user['read']
-        write = user['write']
-
         @users[user_name] = {} unless @users[user_name]
         @users[user_name][vhost] = {
-          configure: configure,
-          read: read,
-          write: write
+          configure: user['configure'],
+          read: user['read'],
+          write: user['write']
         }
       end
     end
