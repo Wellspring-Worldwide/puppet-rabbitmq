@@ -11,11 +11,11 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def self.instances
-    @vhosts ||= rabbitmq_vhosts
+    vhosts = rabbitmq_vhosts
 
-    @vhosts.each do |vhost|
-      unless @vhosts.include? (vhost)
-        @vhosts << vhost
+    vhosts.each do |vhost|
+      unless vhosts.include? (vhost)
+        vhosts << vhost
       end
 
       new(name: vhost)
@@ -31,6 +31,7 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def exists?
-    return self.class.class_variable_get(:@@rabbit_vhosts).include? (resource[:name])
+    vhosts = self.class.rabbitmq_vhosts unless vhosts
+    return vhosts.include? (resource[:name])
   end
 end
