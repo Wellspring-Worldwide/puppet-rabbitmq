@@ -1,9 +1,16 @@
+require 'json'
 class Puppet::Provider::Rabbitmqctl < Puppet::Provider
   initvars
   commands rabbitmqctl: 'rabbitmqctl'
 
+  @@rabbit_vhosts ||= JSON.parse(rabbitmqctl('eval', '[binary_to_list(X) || X <- rabbit_vhost:list()].'))
+
   def self.rabbitmq_version
     @@rabbit_version ||= eval(rabbitmqctl('eval', 'rabbit_misc:version().'))
+  end
+
+  def self.rabbitmq_vhosts
+    return @@rabbit_vhosts
   end
 
   def self.exec_args
