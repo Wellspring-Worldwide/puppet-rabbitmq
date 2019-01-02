@@ -19,10 +19,16 @@ Puppet::Type.type(:rabbitmq_user).provide(
     users = rabbitmq_users
 
     users.each do |user|
+      tags = []
+
+      user['tags'].each do |tag|
+        tags << tag
+      end
+
       new(
         ensure: :present,
         name: user['user'],
-        tags: user['tags']
+        tags: tags
       )
     end
   end
@@ -80,8 +86,10 @@ Puppet::Type.type(:rabbitmq_user).provide(
   end
 
   def tags
-    # do not expose the administrator tag for admins
-    @property_hash[:tags].reject { |tag| tag == admin_tag }
+    if @resource[:tags]
+      # do not expose the administrator tag for admins
+      @resource[:tags].reject { |tag| tag == admin_tag }
+    end
   end
 
   def tags=(tags)
@@ -105,8 +113,11 @@ Puppet::Type.type(:rabbitmq_user).provide(
   end
 
   def admin
-    @property_hash[:tags] = [] unless @property_hash[:tags]
-    @property_hash[:tags].include?(admin_tag) ? :true : :false
+    if @resource[:tags]
+      @resource[:tags].include?(admin_tag) ? :true : :false
+    else
+      :false
+    end
   end
 
   def admin=(state)
