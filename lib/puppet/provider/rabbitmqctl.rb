@@ -12,6 +12,15 @@ class Puppet::Provider::Rabbitmqctl < Puppet::Provider
     return @@rabbit_vhosts
   end
 
+  def self.rabbitmq_users
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
+      @@rabbit_users ||= JSON.parse(rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_auth_backend_internal:list_users())]).').gsub('ok', ''))
+    else
+      @@rabbit_users ||= JSON.parse(rabbitmqctl('eval', 'case rabbit_misc:json_encode(rabbit_auth_backend_internal:list_users()) ok {ok, JSON} -> io:format("~s", [JSON]) end.').gsub('ok', ''))
+    end
+    return @@rabbit_users
+  end
+
   def self.exec_args
     if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7.9') >= 0
       ['--no-table-headers', '-q']
