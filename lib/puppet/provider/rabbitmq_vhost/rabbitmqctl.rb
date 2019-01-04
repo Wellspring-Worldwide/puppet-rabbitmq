@@ -1,3 +1,5 @@
+require 'json'
+require 'pry'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'rabbitmqctl'))
 Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provider::Rabbitmqctl) do
   if Puppet::PUPPETVERSION.to_f < 3
@@ -9,13 +11,14 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def self.instances
-    vhost_list = run_with_retries do
-      rabbitmqctl(exec_args, 'list_vhosts')
-    end
+    vhosts = rabbitmq_vhosts
 
-    vhost_list.split(%r{\n}).map do |line|
-      raise Puppet::Error, "Cannot parse invalid vhost line: #{line}" unless line =~ %r{^(\S+)$}
-      new(name: Regexp.last_match(1))
+    vhosts.each do |vhost|
+      unless vhosts.include? (vhost)
+        vhosts << vhost
+      end
+
+      new(name: vhost)
     end
   end
 
@@ -28,6 +31,7 @@ Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provide
   end
 
   def exists?
-    self.class.run_with_retries { rabbitmqctl('-q', 'list_vhosts') }.split(%r{\n}).include? resource[:name]
+    vhosts = self.class.rabbitmq_vhosts unless vhosts
+    return vhosts.include? (resource[:name])
   end
 end

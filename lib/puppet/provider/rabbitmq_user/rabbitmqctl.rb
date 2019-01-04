@@ -1,3 +1,4 @@
+require 'json'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'rabbitmqctl'))
 Puppet::Type.type(:rabbitmq_user).provide(
   :rabbitmqctl,
@@ -15,17 +16,18 @@ Puppet::Type.type(:rabbitmq_user).provide(
   end
 
   def self.instances
-    user_list = run_with_retries do
-      rabbitmqctl(exec_args, 'list_users')
-    end
+    users = rabbitmq_users
 
-    user_list.split(%r{\n}).map do |line|
-      raise Puppet::Error, "Cannot parse invalid user line: #{line}" unless line =~ %r{^(\S+)\s+\[(.*?)\]$}
-      user = Regexp.last_match(1)
-      tags = Regexp.last_match(2).split(%r{,\s*})
+    users.each do |user|
+      tags = []
+
+      user['tags'].each do |tag|
+        tags << tag
+      end
+
       new(
         ensure: :present,
-        name: user,
+        name: user['user'],
         tags: tags
       )
     end
@@ -34,14 +36,17 @@ Puppet::Type.type(:rabbitmq_user).provide(
   def self.prefetch(resources)
     users = instances
     resources.each_key do |user|
-      if (provider = users.find { |u| u.name == user })
-        resources[user].provider = provider
-      end
+      provider = Puppet::Type::Rabbitmq_user::ProviderRabbitmqctl.new
+      resources[user].provider = provider
     end
   end
 
   def exists?
-    @property_hash[:ensure] == :present
+    users = self.class.rabbitmq_users
+    users.each do |user|
+      return true if user['user'] == resource[:name]
+    end
+    return false
   end
 
   def create
@@ -81,8 +86,10 @@ Puppet::Type.type(:rabbitmq_user).provide(
   end
 
   def tags
-    # do not expose the administrator tag for admins
-    @property_hash[:tags].reject { |tag| tag == admin_tag }
+    if @resource[:tags]
+      # do not expose the administrator tag for admins
+      @resource[:tags].reject { |tag| tag == admin_tag }
+    end
   end
 
   def tags=(tags)
@@ -106,7 +113,11 @@ Puppet::Type.type(:rabbitmq_user).provide(
   end
 
   def admin
-    @property_hash[:tags].include?(admin_tag) ? :true : :false
+    if @resource[:tags]
+      @resource[:tags].include?(admin_tag) ? :true : :false
+    else
+      :false
+    end
   end
 
   def admin=(state)

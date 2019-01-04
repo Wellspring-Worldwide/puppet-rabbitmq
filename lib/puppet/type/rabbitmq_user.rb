@@ -72,7 +72,7 @@ DESC
     defaultto []
 
     def insync?(is)
-      is.sort == should.sort
+      is == should
     end
 
     def should_to_s(value)
