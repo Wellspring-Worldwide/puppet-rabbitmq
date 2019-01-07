@@ -1,5 +1,4 @@
 require 'json'
-require 'pry'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'rabbitmqctl'))
 Puppet::Type.type(:rabbitmq_vhost).provide(:rabbitmqctl, parent: Puppet::Provider::Rabbitmqctl) do
   if Puppet::PUPPETVERSION.to_f < 3
