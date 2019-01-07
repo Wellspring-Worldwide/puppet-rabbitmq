@@ -1,27 +1,31 @@
+require 'json'
 class Puppet::Provider::Rabbitmqctl < Puppet::Provider
   initvars
   commands rabbitmqctl: 'rabbitmqctl'
 
   def self.rabbitmq_version
-    output = rabbitmqctl('-q', 'status')
-    version = output.match(%r{\{rabbit,"RabbitMQ","([\d\.]+)"\}})
-    return unless version
-    @rabbit_version = version[1]
-    version[1]
+    @@rabbit_version ||= eval(rabbitmqctl('eval', 'rabbit_misc:version().'))
+  end
+
+  def self.rabbitmq_vhosts
+    @@rabbit_vhosts ||= JSON.parse(rabbitmqctl('eval', '[binary_to_list(X) || X <- rabbit_vhost:list()].'))
+    return @@rabbit_vhosts
+  end
+
+  def self.rabbitmq_users
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
+      @@rabbit_users ||= JSON.parse(rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_auth_backend_internal:list_users())]).').gsub('ok', ''))
+    else
+      @@rabbit_users ||= JSON.parse(rabbitmqctl('eval', 'case rabbit_misc:json_encode(rabbit_auth_backend_internal:list_users()) of {ok, JSON} -> io:format("~s", [JSON]) end.').gsub('ok', ''))
+    end
+    return @@rabbit_users
   end
 
   def self.exec_args
-    if @rabbit_version
-      if Gem::Version.new(@rabbit_version) >= Gem::Version.new('3.7.9')
-        ['--no-table-headers', '-q']
-      else
-        '-q'
-      end
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7.9') >= 0
+      ['--no-table-headers', '-q']
     else
-      # rabbit_version is unknown, run rabbitmq_version function
-      # to update the local instance variable rabbit_version
-      rabbitmq_version
-      exec_args
+      '-q'
     end
   end
 

@@ -10,22 +10,51 @@ Puppet::Type.type(:rabbitmq_user_permissions).provide(:rabbitmqctl, parent: Pupp
 
   confine feature: :posix
 
-  # cache users permissions
-  def self.users(name, vhost)
-    @users = {} unless @users
-    unless @users[name]
-      @users[name] = {}
-      user_permission_list = run_with_retries do
-        rabbitmqctl(exec_args, 'list_user_permissions', name)
+  @users = {}
+
+  def self.populate_users
+    if Puppet::Util::Package.versioncmp(rabbitmq_version, '3.7') >= 0
+      all_users = run_with_retries do
+        rabbitmqctl('eval', 'io:format("~s", [rabbit_json:encode(rabbit_auth_backend_internal:list_permissions())]).')
       end
-      user_permission_list.split(%r{\n}).each do |line|
-        line = strip_backslashes(line)
-        raise Puppet::Error, "cannot parse line from list_user_permissions:#{line}" unless line =~ %r{^(\S+)\s+(\S*)\s+(\S*)\s+(\S*)$}
-        @users[name][Regexp.last_match(1)] =
-          { configure: Regexp.last_match(2), read: Regexp.last_match(4), write: Regexp.last_match(3) }
+    else
+      all_users = run_with_retries do
+        rabbitmqctl('eval', 'case rabbit_misc:json_encode(rabbit_auth_backend_internal:list_permissions()) of {ok, JSON} -> io:format("~s", [JSON]) end.')
       end
     end
-    @users[name][vhost]
+
+    all_users.gsub!('ok', '')
+
+    json_users = JSON.parse(all_users)
+
+    if json_users.empty?
+      return
+    else
+      json_users.each do |user|
+        vhost = user['vhost']
+        user_name = user['user']
+
+        @users[user_name] = {} unless @users[user_name]
+        @users[user_name][vhost] = {
+          configure: user['configure'],
+          read: user['read'],
+          write: user['write']
+        }
+      end
+    end
+  end
+
+  # cache users permissions
+  def self.users(name, vhost)
+    unless @users[name]
+     self.populate_users
+    end
+
+    if @users[name]
+      return @users[name][vhost] if @users[name][vhost]
+    else
+      return
+    end
   end
 
   def users(name, vhost)
